@@ -3,14 +3,13 @@
 import os
 import sys
 import time
-
-from itertools import permutations
 from collections import defaultdict
+from itertools import permutations
 
 import torch as th
 import torch.nn.functional as F
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.nn.utils import clip_grad_norm_
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from .utils import get_logger
 
@@ -61,47 +60,45 @@ class ProgressReporter(object):
         self.loss.append(loss)
         N = len(self.loss)
         if not N % self.period:
-            avg = sum(self.loss[-self.period:]) / self.period
-            self.logger.info("Processed {:d} batches"
-                             "(loss = {:+.2f})...".format(N, avg))
+            avg = sum(self.loss[-self.period :]) / self.period
+            self.logger.info(
+                "Processed {:d} batches" "(loss = {:+.2f})...".format(N, avg)
+            )
 
     def report(self, details=False):
         N = len(self.loss)
         if details:
             sstr = ",".join(map(lambda f: "{:.2f}".format(f), self.loss))
             self.logger.info("Loss on {:d} batches: {}".format(N, sstr))
-        return {
-            "loss": sum(self.loss) / N,
-            "batches": N,
-            "cost": self.timer.elapsed()
-        }
+        return {"loss": sum(self.loss) / N, "batches": N, "cost": self.timer.elapsed()}
 
 
 class Trainer(object):
-    def __init__(self,
-                 nnet,
-                 checkpoint="checkpoint",
-                 optimizer="adam",
-                 gpuid=0,
-                 optimizer_kwargs=None,
-                 clip_norm=None,
-                 min_lr=0,
-                 patience=0,
-                 factor=0.5,
-                 logging_period=100,
-                 resume=None,
-                 no_impr=6):
+    def __init__(
+        self,
+        nnet,
+        checkpoint="checkpoint",
+        optimizer="adam",
+        gpuid=0,
+        optimizer_kwargs=None,
+        clip_norm=None,
+        min_lr=0,
+        patience=0,
+        factor=0.5,
+        logging_period=100,
+        resume=None,
+        no_impr=6,
+    ):
         if not th.cuda.is_available():
             raise RuntimeError("CUDA device unavailable...exist")
         if not isinstance(gpuid, tuple):
-            gpuid = (gpuid, )
+            gpuid = (gpuid,)
         self.device = th.device("cuda:{}".format(gpuid[0]))
         self.gpuid = gpuid
         if checkpoint and not os.path.exists(checkpoint):
             os.makedirs(checkpoint)
         self.checkpoint = checkpoint
-        self.logger = get_logger(
-            os.path.join(checkpoint, "trainer.log"), file=True)
+        self.logger = get_logger(os.path.join(checkpoint, "trainer.log"), file=True)
 
         self.clip_norm = clip_norm
         self.logging_period = logging_period
@@ -111,16 +108,19 @@ class Trainer(object):
         if resume:
             if not os.path.exists(resume):
                 raise FileNotFoundError(
-                    "Could not find resume checkpoint: {}".format(resume))
+                    "Could not find resume checkpoint: {}".format(resume)
+                )
             cpt = th.load(resume, map_location="cpu")
             self.cur_epoch = cpt["epoch"]
-            self.logger.info("Resume from checkpoint {}: epoch {:d}".format(
-                resume, self.cur_epoch))
+            self.logger.info(
+                "Resume from checkpoint {}: epoch {:d}".format(resume, self.cur_epoch)
+            )
             # load nnet
             nnet.load_state_dict(cpt["model_state_dict"])
             self.nnet = nnet.to(self.device)
             self.optimizer = self.create_optimizer(
-                optimizer, optimizer_kwargs, state=cpt["optim_state_dict"])
+                optimizer, optimizer_kwargs, state=cpt["optim_state_dict"]
+            )
         else:
             self.nnet = nnet.to(self.device)
             self.optimizer = self.create_optimizer(optimizer, optimizer_kwargs)
@@ -130,28 +130,32 @@ class Trainer(object):
             factor=factor,
             patience=patience,
             min_lr=min_lr,
-            verbose=True)
-        self.num_params = sum(
-            [param.nelement() for param in nnet.parameters()]) / 10.0**6
+            verbose=True,
+        )
+        self.num_params = (
+            sum([param.nelement() for param in nnet.parameters()]) / 10.0**6
+        )
 
         # logging
         self.logger.info("Model summary:\n{}".format(nnet))
-        self.logger.info("Loading model to GPUs:{}, #param: {:.2f}M".format(
-            gpuid, self.num_params))
+        self.logger.info(
+            "Loading model to GPUs:{}, #param: {:.2f}M".format(gpuid, self.num_params)
+        )
         if clip_norm:
-            self.logger.info(
-                "Gradient clipping by {}, default L2".format(clip_norm))
+            self.logger.info("Gradient clipping by {}, default L2".format(clip_norm))
 
     def save_checkpoint(self, best=True):
         cpt = {
             "epoch": self.cur_epoch,
             "model_state_dict": self.nnet.state_dict(),
-            "optim_state_dict": self.optimizer.state_dict()
+            "optim_state_dict": self.optimizer.state_dict(),
         }
         th.save(
             cpt,
-            os.path.join(self.checkpoint,
-                         "{0}.pt.tar".format("best" if best else "last")))
+            os.path.join(
+                self.checkpoint, "{0}.pt.tar".format("best" if best else "last")
+            ),
+        )
 
     def create_optimizer(self, optimizer, kwargs, state=None):
         supported_optimizer = {
@@ -214,34 +218,37 @@ class Trainer(object):
             self.save_checkpoint(best=False)
             cv = self.eval(dev_loader)
             best_loss = cv["loss"]
-            self.logger.info("START FROM EPOCH {:d}, LOSS = {:.4f}".format(
-                self.cur_epoch, best_loss))
+            self.logger.info(
+                "START FROM EPOCH {:d}, LOSS = {:.4f}".format(self.cur_epoch, best_loss)
+            )
             no_impr = 0
             # make sure not inf
             self.scheduler.best = best_loss
             while self.cur_epoch < num_epochs:
                 self.cur_epoch += 1
                 cur_lr = self.optimizer.param_groups[0]["lr"]
-                stats[
-                    "title"] = "Loss(time/N, lr={:.3e}) - Epoch {:2d}:".format(
-                        cur_lr, self.cur_epoch)
+                stats["title"] = "Loss(time/N, lr={:.3e}) - Epoch {:2d}:".format(
+                    cur_lr, self.cur_epoch
+                )
                 tr = self.train(train_loader)
                 stats["tr"] = "train = {:+.4f}({:.2f}m/{:d})".format(
-                    tr["loss"], tr["cost"], tr["batches"])
+                    tr["loss"], tr["cost"], tr["batches"]
+                )
                 cv = self.eval(dev_loader)
                 stats["cv"] = "dev = {:+.4f}({:.2f}m/{:d})".format(
-                    cv["loss"], cv["cost"], cv["batches"])
+                    cv["loss"], cv["cost"], cv["batches"]
+                )
                 stats["scheduler"] = ""
                 if cv["loss"] > best_loss:
                     no_impr += 1
                     stats["scheduler"] = "| no impr, best = {:.4f}".format(
-                        self.scheduler.best)
+                        self.scheduler.best
+                    )
                 else:
                     best_loss = cv["loss"]
                     no_impr = 0
                     self.save_checkpoint(best=True)
-                self.logger.info(
-                    "{title} {tr} | {cv} {scheduler}".format(**stats))
+                self.logger.info("{title} {tr} | {cv} {scheduler}".format(**stats))
                 # schedule here
                 self.scheduler.step(cv["loss"])
                 # flush scheduler info
@@ -250,11 +257,14 @@ class Trainer(object):
                 self.save_checkpoint(best=False)
                 if no_impr == self.no_impr:
                     self.logger.info(
-                        "Stop training cause no impr for {:d} epochs".format(
-                            no_impr))
+                        "Stop training cause no impr for {:d} epochs".format(no_impr)
+                    )
                     break
-            self.logger.info("Training for {:d}/{:d} epoches done!".format(
-                self.cur_epoch, num_epochs))
+            self.logger.info(
+                "Training for {:d}/{:d} epoches done!".format(
+                    self.cur_epoch, num_epochs
+                )
+            )
 
 
 class SiSnrTrainer(Trainer):
@@ -276,18 +286,23 @@ class SiSnrTrainer(Trainer):
         if x.shape != s.shape:
             raise RuntimeError(
                 "Dimention mismatch when calculate si-snr, {} vs {}".format(
-                    x.shape, s.shape))
+                    x.shape, s.shape
+                )
+            )
         x_zm = x - th.mean(x, dim=-1, keepdim=True)
         s_zm = s - th.mean(s, dim=-1, keepdim=True)
-        t = th.sum(
-            x_zm * s_zm, dim=-1,
-            keepdim=True) * s_zm / (l2norm(s_zm, keepdim=True)**2 + eps)
+        t = (
+            th.sum(x_zm * s_zm, dim=-1, keepdim=True)
+            * s_zm
+            / (l2norm(s_zm, keepdim=True) ** 2 + eps)
+        )
         return 20 * th.log10(eps + l2norm(t) / (l2norm(x_zm - t) + eps))
 
     def compute_loss(self, egs):
         # spks x n x S
         ests = th.nn.parallel.data_parallel(
-            self.nnet, egs["mix"], device_ids=self.gpuid)
+            self.nnet, egs["mix"], device_ids=self.gpuid
+        )
         # spks x n x S
         refs = egs["ref"]
         num_spks = len(refs)
@@ -295,13 +310,12 @@ class SiSnrTrainer(Trainer):
         def sisnr_loss(permute):
             # for one permute
             return sum(
-                [self.sisnr(ests[s], refs[t])
-                 for s, t in enumerate(permute)]) / len(permute)
+                [self.sisnr(ests[s], refs[t]) for s, t in enumerate(permute)]
+            ) / len(permute)
 
         # P x N
         N = egs["mix"].size(0)
-        sisnr_mat = th.stack(
-            [sisnr_loss(p) for p in permutations(range(num_spks))])
+        sisnr_mat = th.stack([sisnr_loss(p) for p in permutations(range(num_spks))])
         max_perutt, _ = th.max(sisnr_mat, dim=0)
         # si-snr
         return -th.sum(max_perutt) / N

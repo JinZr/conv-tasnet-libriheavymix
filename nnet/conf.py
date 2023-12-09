@@ -1,4 +1,4 @@
-fs = 8000
+fs = 16000
 chunk_len = 4  # (s)
 chunk_size = chunk_len * fs
 num_spks = 2
