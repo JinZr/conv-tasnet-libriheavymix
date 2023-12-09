@@ -128,16 +128,13 @@ class WaveReader(Reader):
         ...
     """
 
-    def __init__(self, wav_scp, sample_rate=None, normalize=True):
+    def __init__(self, wav_scp, sample_rate=None):
         super(WaveReader, self).__init__(wav_scp)
         self.samp_rate = sample_rate
-        self.normalize = normalize
 
     def load(self, key):
         # return C x N or N
-        samp_rate, samps = read_wav(
-            self.index_dict[key], normalize=self.normalize, return_rate=True
-        )
+        samp_rate, samps = read_wav(self.index_dict[key], return_rate=True)
         # if given samp_rate, check it
         if self.samp_rate is not None and samp_rate != self.samp_rate:
             raise RuntimeError(
