@@ -90,7 +90,7 @@ class Reader(object):
         )
         self.index_keys = list(self.index_dict.keys())
 
-    def _load(self, key):
+    def load(self, key):
         # return path
         return self.index_dict[key]
 
@@ -105,7 +105,7 @@ class Reader(object):
     # sequential index
     def __iter__(self):
         for key in self.index_keys:
-            yield key, self._load(key)
+            yield key, self.load(key)
 
     # random index, support str/int as index
     def __getitem__(self, index):
@@ -121,7 +121,7 @@ class Reader(object):
             index = self.index_keys[index]
         if index not in self.index_dict:
             raise KeyError("Missing utterance {}!".format(index))
-        return self._load(index)
+        return self.load(index)
 
 
 class WaveReader(Reader):
@@ -137,7 +137,7 @@ class WaveReader(Reader):
         self.samp_rate = sample_rate
         self.normalize = normalize
 
-    def _load(self, key):
+    def load(self, key):
         # return C x N or N
         samp_rate, samps = read_wav(
             self.index_dict[key], normalize=self.normalize, return_rate=True

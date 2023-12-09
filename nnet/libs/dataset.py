@@ -27,9 +27,15 @@ class Dataset(object):
     Per Utterance Loader
     """
 
-    def __init__(self, mix_scp="", ref_scp=None, sample_rate=8000):
+    def __init__(self, mix_scp="", ref_scp=None, segments=None, sample_rate=8000):
         self.mix = WaveReader(mix_scp, sample_rate=sample_rate)
         self.ref = [WaveReader(ref, sample_rate=sample_rate) for ref in ref_scp]
+        # with open(segments, "r") as f:
+        #     self.segments_lines = f.readlines()
+        #     self.segments = {}
+        #     for line in self.segments_lines:
+        #         key, _, start, end = line.strip().split()
+        #         self.segments[key] = (float(start), float(end))
 
     def __len__(self):
         return len(self.mix)
@@ -108,7 +114,7 @@ class DataLoader(object):
     """
 
     def __init__(
-        self, dataset, num_workers=4, chunk_size=32000, batch_size=16, train=True
+        self, dataset, num_workers=8, chunk_size=32000, batch_size=32, train=True
     ):
         self.batch_size = batch_size
         self.train = train

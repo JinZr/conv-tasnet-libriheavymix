@@ -3,9 +3,7 @@
 # wujian@2018
 
 import argparse
-import os
 import pprint
-import random
 
 from conf import chunk_size, dev_data, nnet_conf, train_data, trainer_conf
 from conv_tas_net import ConvTasNet
